@@ -1,6 +1,6 @@
 {
   "name": "@cosmemilton/ui-vue",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "license": "ISC",
   "repository": {"type":"git","url":"git+https://github.com/cosmemilton/cosmemilton-ui-vue.git"},
   "description": "Componentes Vue 3 e Nuxt da CosmeMilton UI.",

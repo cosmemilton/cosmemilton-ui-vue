@@ -79,10 +79,10 @@ export const CmTabsContent = defineComponent({
 })
 
 export const CmAvatar = component('CmAvatar', (a, s) => {
-  const { src, alt = '', fallback, size = 'md', class: className, ...attrs } = a
+  const { src, name, alt = name ?? '', initials, fallback = initials, size = 'md', class: className, ...attrs } = a
   return element('span', { ...attrs, class: classes('cm-avatar', 'cm-avatar--' + size, className) },
     src ? element('img', { src, alt, class: 'cm-avatar__image' })
-      : element('span', { class: 'cm-avatar__fallback' }, s.default?.() ?? fallback ?? alt.slice(0, 2)))
+      : s.default?.() ?? fallback ?? element('span', { class: 'cm-avatar__fallback' }, alt[0] ?? '?'))
 })
 export const CmLink = component('CmLink', (a, s) => {
   const { href, variant = 'default', tone = 'default', class: className, ...attrs } = a
