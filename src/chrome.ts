@@ -158,10 +158,31 @@ export const CmSidebar = defineComponent({
   setup(props, { slots, emit }) {
     const collapsed = ref(false)
     const openGroup = ref<string | null>(null)
+    const navigation = ref<HTMLElement>()
     const active = (item: SidebarItem) => item.active ?? props.activePathname === item.to
     watch(() => props.activePathname, () => {
       openGroup.value = props.groups.find(group => group.items.some(active))?.id ?? null
     }, { immediate: true })
+    watch([() => props.activePathname, navigation], async (_, __, onCleanup) => {
+      const link = navigation.value?.querySelector<HTMLElement>('.cm-sidebar__group-items > .cm-sidebar__item[aria-current="page"]')
+      const list = link?.parentElement
+      if (!link || !list || list.inert) return
+      const initialScroll = list.scrollTop
+      let cancelled = false
+      onCleanup(() => { cancelled = true })
+
+      const opening = list.getAnimations?.().filter(animation =>
+        'transitionProperty' in animation && animation.transitionProperty === 'max-height') ?? []
+      if (opening.length) await Promise.allSettled(opening.map(animation => animation.finished))
+      if (cancelled || list.inert || !link.isConnected || initialScroll !== list.scrollTop || !list.clientHeight) return
+
+      const bounds = list.getBoundingClientRect()
+      const item = link.getBoundingClientRect()
+      const top = bounds.top + list.clientTop
+      const bottom = top + list.clientHeight
+      if (item.top < top) list.scrollTop += item.top - top
+      else if (item.bottom > bottom) list.scrollTop += item.bottom - bottom
+    }, { flush: 'post' })
     const icon = (component: Component | undefined, label: string, marker = false) => element('span', {
       class: classes('cm-sidebar__nav-icon', !component && (marker ? 'cm-sidebar__nav-icon--marker' : 'cm-sidebar__nav-icon--fallback')),
       'aria-hidden': true,
@@ -200,7 +221,7 @@ export const CmSidebar = defineComponent({
               onClick: () => { collapsed.value = true },
             }, chevron('left')) : null,
           ]),
-          element('nav', { class: 'cm-sidebar__nav', 'aria-label': props.navLabel }, props.groups.map(group => {
+          element('nav', { class: 'cm-sidebar__nav', 'aria-label': props.navLabel, ref: navigation }, props.groups.map(group => {
             const isActive = group.items.some(active)
             const groupOpen = openGroup.value === group.id && !group.direct
             const expanded = groupOpen && !compact

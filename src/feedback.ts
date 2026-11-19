@@ -117,10 +117,16 @@ export const CmDropdownMenu = defineComponent({
       const below = height - anchor.bottom - margin - gap
       const above = anchor.top - margin - gap
       const upward = floating.scrollHeight > below && above > below
-      const preferred = props.align === 'start' ? anchor.left : props.align === 'center'
-        ? (anchor.left + anchor.right - floating.offsetWidth) / 2 : anchor.right - floating.offsetWidth
+      const panelWidth = floating.offsetWidth
+      const start = anchor.left
+      const end = anchor.right - panelWidth
+      const preferred = props.align === 'start' ? start : props.align === 'center' ? (start + end) / 2 : end
+      const opposite = props.align === 'start' ? end : start
+      const limit = width - panelWidth - margin
+      const overflow = (left: number) => Math.max(0, margin - left) + Math.max(0, left - limit)
+      const left = props.align !== 'center' && overflow(opposite) < overflow(preferred) ? opposite : preferred
       Object.assign(floating.style, {
-        left: Math.max(margin, Math.min(preferred, width - floating.offsetWidth - margin)) + 'px',
+        left: Math.max(margin, Math.min(left, limit)) + 'px',
         top: upward ? 'auto' : anchor.bottom + gap + 'px',
         bottom: upward ? height - anchor.top + gap + 'px' : 'auto',
         maxHeight: Math.max(0, upward ? above : below) + 'px',
