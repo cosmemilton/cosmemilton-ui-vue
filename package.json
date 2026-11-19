@@ -1,0 +1,39 @@
+{
+  "name": "@cosmemilton/ui-vue",
+  "version": "0.1.4",
+  "license": "ISC",
+  "description": "Componentes Vue 3 e Nuxt da CosmeMilton UI.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./nuxt": "./dist/nuxt.js",
+    "./styles.css": "./dist/styles.css",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc && node scripts/copy-assets.mjs",
+    "prepack": "npm run build"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.0",
+    "@nuxt/kit": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@nuxt/kit": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@nuxt/kit": "4.6.4",
+    "vue": "3.5.45",
+    "typescript": "~5.9.3"
+  }
+}
