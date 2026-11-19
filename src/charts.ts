@@ -1,10 +1,10 @@
 import { defineComponent, h, ref, useId, type PropType } from 'vue'
-import { CmSectionHeader, classes, element } from './primitives.js'
+import { barThicknessPixels, classes, element } from './primitives.js'
 
-export type ChartDatum = { label: string; value: number; tone?: string }
-export type ComparisonDatum = { label: string; description?: string; left: number; right: number }
+export type ChartDatum = { label: string; value: number; tone?: string; color?: string }
+export type ComparisonDatum = { label: string; description?: string; left: number | null; right: number | null }
 const tone = (name: string) => name === 'primary-soft'
-  ? 'color-mix(in srgb, var(--color-primary) 52%, var(--color-card))'
+  ? 'var(--cm-chart-primary-soft)'
   : 'var(--color-' + name + ', var(--color-primary))'
 const format = new Intl.NumberFormat('pt-BR')
 const svg = (tag: string, attrs: Record<string, unknown>, text?: string) => h(tag, attrs, text)
@@ -16,41 +16,50 @@ export const CmBarChart = defineComponent({
   name: 'CmBarChart',
   props: {
     data: { type: Array as PropType<ChartDatum[]>, required: true },
-    height: { type: Number, default: 200 },
+    height: Number, orientation: { type: String as PropType<'vertical' | 'horizontal'>, default: 'vertical' },
+    barThickness: [Number, String], showValues: { type: Boolean, default: true }, showGrid: { type: Boolean, default: true },
+    legend: { type: [Boolean, Array] as PropType<boolean | LegendItem[]>, default: false }, legendPosition: String, legendLayout: String,
     valueFormat: { type: Function as PropType<(value: number) => string>, default: (value: number) => format.format(value) },
-    title: String,
+    title: String, description: String, accessibleTableLabel: String,
   },
   setup(props) {
     return () => {
-      const width = 620
-      const height = props.height
-      const top = 18
-      const bottom = height - 35
-      const labelWidth = 48
-      const step = (width - labelWidth - 12) / Math.max(1, props.data.length)
+      const horizontal = props.orientation === 'horizontal'
+      const height = props.height ?? (horizontal ? undefined : 300)
       const maximum = Math.max(1, ...props.data.map(item => item.value))
-      return h('svg', {
-        viewBox: '0 0 ' + width + ' ' + height, width: '100%', height, role: 'img',
-        'aria-label': props.title ?? 'Gráfico de barras', class: 'cm-vue-bar-chart',
-      }, [
-        ...[0, 1, 2, 3].flatMap(index => {
-          const y = top + (bottom - top) * index / 3
-          const value = Math.round(maximum * (1 - index / 3))
-          return [svg('line', { x1: labelWidth, x2: width - 7, y1: y, y2: y, stroke }),
-            svg('text', { x: labelWidth - 5, y: y + 4, textAnchor: 'end', ...chartText }, format.format(value))]
-        }),
-        ...props.data.flatMap((item, index) => {
-          const x = labelWidth + step * (index + .5)
-          const barHeight = Math.max(0, item.value / maximum * (bottom - top))
-          const barWidth = Math.min(52, step * .55)
-          return [
-            h('rect', { x: x - barWidth / 2, y: bottom - barHeight, width: barWidth, height: barHeight, rx: 5,
-              fill: tone(item.tone ?? 'primary'), tabindex: 0, 'aria-label': item.label + ': ' + props.valueFormat(item.value) },
-            [svg('title', {}, item.label + ': ' + props.valueFormat(item.value))]),
-            svg('text', { x, y: height - 11, textAnchor: 'middle', ...chartText }, item.label),
-          ]
-        }),
-      ])
+      const thickness = barThicknessPixels(props.barThickness)
+      const bars = props.data.map(item => ({ ...item, percent: 100 * Math.max(0, item.value) / maximum + '%',
+        amount: props.valueFormat(item.value), color: item.color ?? tone(item.tone ?? 'primary') }))
+      const legend = props.legend === true ? bars.map(bar => ({ label: bar.label, value: format.format(bar.value), color: bar.color }))
+        : props.legend || []
+      return h(CmChartFrame, {
+        title: props.title, description: props.description, empty: !bars.length, height,
+        legend, legendPosition: props.legendPosition, legendLayout: props.legendLayout,
+        accessibleTableLabel: props.accessibleTableLabel ?? props.title ?? 'Dados do gráfico de barras',
+        table: { columns: [{ key: 'label', header: 'Categoria' }, { key: 'value', header: 'Valor' }],
+          rows: bars.map(bar => ({ label: bar.label, value: bar.amount })) },
+      }, { default: () => horizontal
+        ? element('div', { class: 'cm-bar-chart cm-bar-chart--horizontal' }, bars.map(bar =>
+          element('div', { key: bar.label, class: 'cm-bar-chart__row' }, [
+            element('div', { class: 'cm-bar-chart__row-header' }, [
+              element('span', { class: 'cm-bar-chart__label' }, bar.label),
+              props.showValues ? element('span', { class: 'cm-bar-chart__value' }, bar.amount) : null,
+            ]),
+            element('div', { class: 'cm-bar-chart__track', style: { height: thickness } },
+              element('div', { class: 'cm-bar-chart__fill cm-bar-chart__fill--horizontal', style: { width: bar.percent, backgroundColor: bar.color } })),
+          ])))
+        : element('div', { class: 'cm-bar-chart cm-bar-chart--vertical', style: { height: height + 'px' } }, [
+          props.showGrid ? element('div', { class: 'cm-bar-chart__grid', 'aria-hidden': true },
+            [0, 1, 2, 3, 4].map(index => element('div', { key: index, class: 'cm-bar-chart__grid-line' }))) : null,
+          element('div', { class: 'cm-bar-chart__plot' }, bars.map(bar =>
+            element('div', { key: bar.label, class: 'cm-bar-chart__column' }, [
+              element('div', { class: 'cm-bar-chart__column-inner' }, [
+                props.showValues ? element('span', { class: 'cm-bar-chart__value cm-bar-chart__value--above' }, bar.amount) : null,
+                element('div', { class: 'cm-bar-chart__fill cm-bar-chart__fill--vertical', style: { height: bar.percent, backgroundColor: bar.color } }),
+              ]),
+              element('span', { class: 'cm-bar-chart__label cm-bar-chart__label--axis' }, bar.label),
+            ]))),
+        ]) })
     }
   },
 })
@@ -109,6 +118,7 @@ function chartPath(points: XY[], smooth: boolean) {
   const start = points[0]
   if (!start) return ''
   let path = 'M' + start.x + ' ' + start.y
+  if (points.length === 1) return path + 'l0 0'
   points.slice(1).forEach((point, offset) => {
     const index = offset + 1
     const previous = points[index - 1]!
@@ -134,7 +144,31 @@ function normalizedSeries(values: number[], requestedMin?: number, requestedMax?
   }
 }
 
-type Axis = { label: string; tone?: string; domain?: [number, number]; valueFormat?: (value: number) => string; tickFormat?: (value: number) => string }
+type Axis = { label: string; tone?: string; color?: string; area?: boolean; domain?: [number, number]; valueFormat?: (value: number) => string; tickFormat?: (value: number) => string }
+function comparisonSeries(values: (number | null)[], domain: [number, number] | undefined, smooth: boolean, filled: boolean) {
+  const valid = values.filter((value): value is number => value !== null && Number.isFinite(value))
+  const bounds = domain && domain.every(Number.isFinite) && domain[0] < domain[1] ? domain : []
+  const min = Math.min(0, ...bounds, ...valid)
+  const max = Math.max(0, ...bounds, ...valid)
+  const range = max - min || 1
+  const baseline = 100 * (1 + min / range)
+  const paths: string[] = []
+  const areas: string[] = []
+  let run: XY[] = []
+  function finishRun() {
+    if (!run.length) return
+    const path = chartPath(run, smooth)
+    paths.push(path)
+    if (filled && run.length > 1) areas.push(path + ' L' + run.at(-1)!.x + ' ' + baseline + ' L' + run[0]!.x + ' ' + baseline + ' Z')
+    run = []
+  }
+  values.forEach((value, index) => {
+    if (value === null || !Number.isFinite(value)) { finishRun(); return }
+    run.push({ x: position(index, values.length), y: 100 * (1 - (value - min) / range) })
+  })
+  finishRun()
+  return { path: paths.join(' '), area: areas.join(' '), ticks: [1, .75, .5, .25, 0].map(fraction => min + fraction * range) }
+}
 export const CmComparisonLineChart = defineComponent({
   name: 'CmComparisonLineChart',
   props: {
@@ -142,8 +176,8 @@ export const CmComparisonLineChart = defineComponent({
     leftAxis: Object as PropType<Axis>, rightAxis: Object as PropType<Axis>,
     leftLabel: { type: String, default: 'Receita' }, rightLabel: { type: String, default: 'Pedidos' },
     leftMax: Number, rightMax: Number, title: String, description: String, accessibleTableLabel: String,
-    height: { type: Number, default: 216 }, curve: { type: String, default: 'smooth' },
-    legendPosition: { type: String, default: 'header' }, xLabels: { type: String, default: 'responsive' },
+    height: { type: Number, default: 192 }, curve: { type: String, default: 'linear' },
+    legendPosition: { type: String, default: 'footer' }, xLabels: { type: String, default: 'compact' },
     leftFormat: { type: Function as PropType<(value: number) => string>, default: (value: number) => format.format(value) },
   },
   setup(props) {
@@ -176,54 +210,60 @@ export const CmComparisonLineChart = defineComponent({
       const rightLabel = rightAxis?.label ?? props.rightLabel
       const leftFormat = leftAxis?.valueFormat ?? props.leftFormat
       const rightFormat = rightAxis?.valueFormat ?? format.format
-      const leftColor = tone(leftAxis?.tone ?? 'primary')
-      const rightColor = tone(rightAxis?.tone ?? 'primary-soft')
-      const left = normalizedSeries(props.data.map(item => item.left), leftAxis?.domain?.[0], leftAxis?.domain?.[1] ?? props.leftMax)
-      const right = normalizedSeries(props.data.map(item => item.right), rightAxis?.domain?.[0], rightAxis?.domain?.[1] ?? props.rightMax)
-      const line = chartPath(left.points, props.curve === 'smooth')
-      const dashed = chartPath(right.points, props.curve === 'smooth')
-      const first = left.points[0]
-      const last = left.points.at(-1)
+      const leftColor = leftAxis?.color ?? tone(leftAxis?.tone ?? 'primary')
+      const rightColor = rightAxis?.color ?? tone(rightAxis?.tone ?? 'info')
+      const left = comparisonSeries(props.data.map(item => item.left), leftAxis?.domain ?? (props.leftMax ? [0, props.leftMax] : undefined), props.curve === 'smooth', !!leftAxis?.area)
+      const right = comparisonSeries(props.data.map(item => item.right), rightAxis?.domain ?? (props.rightMax ? [0, props.rightMax] : undefined), props.curve === 'smooth', !!rightAxis?.area)
       const active = props.data[limit(cursor.value)]
-      const x = position(cursor.value, props.data.length)
+      const x = position(limit(cursor.value), props.data.length)
       const label = leftLabel + ' e ' + rightLabel
-      const rows = props.data.map(item => ({ point: item.description ?? item.label, left: leftFormat(item.left), right: rightFormat(item.right) }))
-      const labels = props.data.map((point, index) => ({ point, index, compact: index === 0 ||
-        index === Math.floor((props.data.length - 1) / 2) || index === props.data.length - 1 }))
-        .filter(item => props.xLabels === 'responsive' || item.compact)
+      const formatPoint = (value: number | null, formatter: (value: number) => string) => value !== null && Number.isFinite(value) ? formatter(value) : '—'
+      const rows = props.data.map(item => ({ point: item.description ?? item.label, left: formatPoint(item.left, leftFormat), right: formatPoint(item.right, rightFormat) }))
+      const last = props.data.length - 1
+      const middle = Math.floor(last / 2)
+      const labelIndices = new Set([0, middle, last])
+      if (props.xLabels === 'responsive') {
+        const count = Math.min(8, props.data.length)
+        for (let i = 1; i < count - 1; i++) labelIndices.add(i === Math.floor((count - 1) / 2) ? middle : Math.round(i * last / (count - 1)))
+      }
+      const labels = props.data.map((point, index) => ({ point, index, compact: index === 0 || index === middle || index === last }))
+        .filter(item => labelIndices.has(item.index))
       return h(CmChartFrame, {
-        title: props.title, description: props.description, empty: !props.data.length, legendPosition: props.legendPosition,
-        legend: [{ label: leftLabel, color: leftColor, marker: 'line' }, { label: rightLabel, color: rightColor, marker: 'dashed' }],
+        title: props.title, description: props.description, empty: !left.path && !right.path, legendPosition: props.legendPosition,
+        legend: [{ label: leftLabel, color: leftColor, marker: props.legendPosition === 'header' ? 'line' : 'dot' },
+          { label: rightLabel, color: rightColor, marker: props.legendPosition === 'header' ? 'dashed' : 'dot' }],
         accessibleTableLabel: props.accessibleTableLabel ?? label,
         table: { columns: [{ key: 'point', header: 'Ponto' }, { key: 'left', header: leftLabel }, { key: 'right', header: rightLabel }], rows },
       }, { default: () => element('div', { class: 'cm-comparison-chart' }, [
         element('div', { class: 'cm-comparison-chart__axis', 'aria-hidden': true },
           left.ticks.map(value => element('span', {}, (leftAxis?.tickFormat ?? leftFormat)(value)))),
         element('div', { class: 'cm-comparison-chart__plot', role: 'slider', tabindex: 0, 'aria-label': label,
-          'aria-valuemin': 1, 'aria-valuemax': props.data.length, 'aria-valuenow': cursor.value + 1,
-          'aria-valuetext': active ? active.label + ' · ' + leftFormat(active.left) + ' · ' + rightFormat(active.right) : undefined,
+          'aria-valuemin': 1, 'aria-valuemax': props.data.length, 'aria-valuenow': limit(cursor.value) + 1,
+          'aria-valuetext': active ? (active.description ?? active.label) + ' · ' + leftLabel + ': ' + formatPoint(active.left, leftFormat) + ' · ' + rightLabel + ': ' + formatPoint(active.right, rightFormat) : undefined,
           style: { height: props.height + 'px' }, onPointermove: inspect, onPointerdown: inspect,
           onPointerleave: (event: PointerEvent) => { if (document.activeElement !== event.currentTarget) inspecting.value = false },
           onFocus: () => { inspecting.value = true }, onBlur: () => { inspecting.value = false }, onKeydown: keyboard,
         }, [
           h('svg', { viewBox: '0 0 100 100', preserveAspectRatio: 'none', 'aria-hidden': true }, [
-            h('defs', {}, [h('linearGradient', { id: gradientId, x1: 0, x2: 0, y1: 0, y2: 1, gradientUnits: 'objectBoundingBox' }, [
-              svg('stop', { offset: 0, 'stop-color': leftColor, 'stop-opacity': .22 }),
-              svg('stop', { offset: 1, 'stop-color': leftColor, 'stop-opacity': .035 }),
-            ])]),
-            first && last ? svg('path', { d: line + ' L' + last.x + ' ' + left.baseline + ' L' + first.x + ' ' + left.baseline + ' Z', fill: 'url(#' + gradientId + ')' }) : null,
+            ...[{ area: left.area, color: leftColor }, { area: right.area, color: rightColor }].map(({ area, color }, index) => area ? h('g', { key: index }, [
+              h('defs', {}, [h('linearGradient', { id: gradientId + '-' + index, x1: 0, x2: 0, y1: 0, y2: 1, gradientUnits: 'objectBoundingBox' }, [
+                svg('stop', { offset: 0, 'stop-color': color, 'stop-opacity': .22 }),
+                svg('stop', { offset: 1, 'stop-color': color, 'stop-opacity': .035 }),
+              ])]),
+              svg('path', { d: area, fill: 'url(#' + gradientId + '-' + index + ')' }),
+            ]) : null),
             ...[0, 25, 50, 75, 100].map(y => svg('line', { x1: 0, x2: 100, y1: y, y2: y,
               class: 'cm-comparison-chart__grid', 'vector-effect': 'non-scaling-stroke' })),
-            svg('path', { d: line, fill: 'none', stroke: leftColor, 'stroke-width': 2, 'stroke-linecap': 'round', 'vector-effect': 'non-scaling-stroke' }),
-            svg('path', { d: dashed, fill: 'none', stroke: rightColor, 'stroke-width': 2, 'stroke-linecap': 'round',
+            svg('path', { d: left.path, fill: 'none', stroke: leftColor, 'stroke-width': 2, 'stroke-linecap': 'round', 'vector-effect': 'non-scaling-stroke' }),
+            svg('path', { d: right.path, fill: 'none', stroke: rightColor, 'stroke-width': 2, 'stroke-linecap': 'round',
               'stroke-dasharray': '6 3', 'vector-effect': 'non-scaling-stroke' }),
             inspecting.value ? svg('line', { x1: x, x2: x, y1: 0, y2: 100,
               class: 'cm-comparison-chart__cursor', 'vector-effect': 'non-scaling-stroke' }) : null,
           ]),
           inspecting.value && active ? element('div', { class: 'cm-comparison-chart__tooltip', 'data-side': x < 50 ? 'end' : 'start', 'aria-hidden': true }, [
             element('strong', {}, active.description ?? active.label),
-            element('span', {}, leftLabel + ' · ' + leftFormat(active.left)),
-            element('span', {}, rightLabel + ' · ' + rightFormat(active.right)),
+            element('span', {}, leftLabel + ' · ' + formatPoint(active.left, leftFormat)),
+            element('span', {}, rightLabel + ' · ' + formatPoint(active.right, rightFormat)),
           ]) : null,
         ]),
         element('div', { class: 'cm-comparison-chart__axis', 'aria-hidden': true },

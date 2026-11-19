@@ -1,4 +1,4 @@
-import { computed, defineComponent, h, inject, provide, ref, useId, type InjectionKey, type PropType, type Ref } from 'vue'
+import { computed, defineComponent, h, inject, provide, ref, useId, type InjectionKey, type PropType, type Ref, type VNodeChild } from 'vue'
 import { CmButton, CmField, CmNativeInput } from './forms.js'
 import { CmDialog, CmDropdownMenu, type MenuItem } from './feedback.js'
 import { CmCard, CmRow, CmSectionHeader, CmStack, classes, component, element, normalizeAttrs } from './primitives.js'
@@ -117,8 +117,10 @@ export const CmSplitButton = defineComponent({
 })
 
 export const CmPanel = component('CmPanel', (a, s) => {
-  const { title, description, headingLevel, ...attrs } = a
-  return h(CmCard, attrs, { ...s, header: () => h(CmSectionHeader, { title, description, headingLevel }, { actions: s.actions }) })
+  const { title, description, headingLevel, class: className, ...attrs } = a
+  return h(CmCard, { role: 'region', 'aria-label': attrs['aria-labelledby'] ? undefined : title, ...attrs, class: classes('cm-panel', className) }, {
+    ...s, header: () => h(CmSectionHeader, { title, description, headingLevel }, { icon: s.icon, actions: s.actions }),
+  })
 })
 export const CmListPanel = component('CmListPanel', (a, s) => {
   const { title, description, filterLabel, ...attrs } = a
@@ -141,23 +143,40 @@ export const CmToolbar = component('CmToolbar', (a, s) => {
   return h(CmRow, { ...a, class: classes('cm-toolbar', a.class), role: 'toolbar', wrap: true, align: 'center', justify: 'between' }, s)
 })
 export const CmSummaryList = component('CmSummaryList', (a, s) => {
-  const { items = [], class: className, ...attrs } = a
-  return element('dl', { ...attrs, class: classes('cm-summary-list', className) }, s.default?.() ?? items.map((item: { label: string; value: string }) =>
-    element('div', { class: 'cm-summary-list__item' }, [
-      element('dt', { class: 'cm-summary-list__label' }, item.label), element('dd', { class: 'cm-summary-list__value' }, item.value),
+  const { items = [], layout = 'rows', divided = true, columns = 1, style, class: className, ...attrs } = a
+  return element('dl', { ...attrs, class: classes('cm-summary-list', 'cm-summary-list--' + layout, divided !== false && 'cm-summary-list--divided', className),
+    style: [{ '--cm-summary-list-columns': columns > 1 ? String(columns) : undefined }, style],
+  }, s.default?.() ?? items.map((item: { id?: string; label: string; value: string | number; tone?: string; emphasis?: boolean }) =>
+    element('div', { key: item.id ?? item.label, class: 'cm-summary-list__item' }, [
+      element('dt', { class: 'cm-summary-list__label' }, item.label),
+      element('dd', { class: classes('cm-summary-list__value', item.tone && 'cm-summary-list__value--tone-' + item.tone, item.emphasis && 'cm-summary-list__value--emphasis') }, item.value),
     ])))
 })
+type TimelineItem = { id?: string; label?: VNodeChild; title?: VNodeChild; description?: VNodeChild; tone?: string; marker?: VNodeChild; content?: VNodeChild; trailing?: VNodeChild }
 export const CmTimeline = component('CmTimeline', (a, s) => {
-  const { items = [], variant = 'default', class: className, ...attrs } = a
-  return element('ol', { ...attrs, class: classes('cm-timeline', 'cm-timeline--' + variant, className) }, s.default?.() ?? items.map((item: { id?: string; label?: string; title?: string; description?: string; tone?: string }) =>
-    element('li', { key: item.id, class: 'cm-timeline__item' }, [
-      element('span', { class: 'cm-timeline__marker cm-timeline__marker--' + (item.tone ?? 'primary'), 'aria-hidden': true }, '•'),
-      element('div', { class: 'cm-timeline__content' }, [
-        element('small', { class: 'cm-timeline__label' }, item.label),
-        element('strong', { class: 'cm-timeline__title' }, item.title),
-        element('p', { class: 'cm-timeline__description' }, item.description),
+  const { items = [], labelWidth, tone = 'primary', variant = 'default', style, class: className, ...attrs } = a
+  const hasLabels = items.some((item: TimelineItem) => item.label != null)
+  return element('ol', { ...attrs, class: classes('cm-timeline', 'cm-timeline--variant-' + variant, className),
+    style: [{ '--cm-timeline-label-width': typeof labelWidth === 'number' ? labelWidth + 'px' : labelWidth }, style],
+  }, s.default?.() ?? items.map((item: TimelineItem, index: number) => {
+    const marker = s.marker?.({ item }) ?? item.marker
+    return element('li', { key: item.id ?? index, class: 'cm-timeline__item' }, [
+      hasLabels ? element('div', { class: 'cm-timeline__label' }, s.label?.({ item }) ?? item.label) : null,
+      element('div', { class: 'cm-timeline__rail', 'aria-hidden': true }, [
+        items.length > 1 ? element('span', { class: classes('cm-timeline__connector', index === 0 && 'cm-timeline__connector--first',
+          index === items.length - 1 && 'cm-timeline__connector--last') }) : null,
+        element('span', { class: classes('cm-timeline__marker', 'cm-timeline__marker--tone-' + (item.tone ?? tone),
+          marker != null && 'cm-timeline__marker--icon') }, marker),
       ]),
-    ])))
+      element('div', { class: 'cm-timeline__content' }, [
+        element('div', { class: 'cm-timeline__main' }, item.content ?? [
+          item.title != null ? element('div', { class: 'cm-timeline__title' }, item.title) : null,
+          item.description != null ? element('div', { class: 'cm-timeline__description' }, item.description) : null,
+        ]),
+        item.trailing != null ? element('div', { class: 'cm-timeline__trailing' }, item.trailing) : null,
+      ]),
+    ])
+  }))
 })
 export const CmSkeleton = component('CmSkeleton', (a) => {
   const { width, height, class: className, ...attrs } = a
