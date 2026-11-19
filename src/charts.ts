@@ -332,11 +332,14 @@ export const CmRatioBar = defineComponent({
     height: [Number, String],
     handleIndex: Number,
     handleLabel: String,
+    valueText: Function as PropType<(values: number[]) => string>,
     step: Number,
     disabled: Boolean,
   },
   emits: ['change'],
   setup(props, { emit, attrs }) {
+    const track = ref<HTMLElement>()
+    let pointer: number | undefined
     return () => {
       const total = props.segments.reduce((sum, segment) => sum + Math.max(0, segment.value), 0)
       const percent = (value: number) => total > 0 ? value / total * 100 + '%' : '0%'
@@ -349,23 +352,53 @@ export const CmRatioBar = defineComponent({
       function commit(value: number) {
         if (index === undefined || props.disabled || !left || !right) return
         const adjusted = Math.min(maximum, Math.max(minimum, value))
+        if (adjusted === left.value) return
         emit('change', props.segments.map((segment, position) =>
           position === index ? adjusted : position === index + 1 ? pair - adjusted : segment.value))
       }
-      return element('div', { ...attrs, class: classes('cm-ratio-bar', attrs.class),
+      const offset = props.segments.slice(0, index ?? 0).reduce((sum, segment) => sum + Math.max(0, segment.value), 0)
+      function keydown(event: KeyboardEvent) {
+        if (props.disabled || !left) return
+        const step = props.step ?? Math.max(1, pair / 100)
+        const positions: Record<string, number> = { Home: minimum, End: maximum,
+          ArrowRight: left.value + step, ArrowUp: left.value + step, ArrowLeft: left.value - step, ArrowDown: left.value - step,
+          PageUp: left.value + 10 * step, PageDown: left.value - 10 * step }
+        if (!Object.hasOwn(positions, event.key)) return
+        event.preventDefault()
+        commit(positions[event.key])
+      }
+      function start(event: PointerEvent) {
+        if (props.disabled || pointer !== undefined || event.button !== 0) return
+        const handle = event.currentTarget as HTMLElement
+        pointer = event.pointerId
+        handle.setPointerCapture(event.pointerId)
+        handle.focus()
+        event.preventDefault()
+      }
+      function move(event: PointerEvent) {
+        const bounds = track.value?.getBoundingClientRect()
+        if (event.pointerId !== pointer || !bounds?.width) return
+        commit(Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width)) * total - offset)
+      }
+      function stop(event: PointerEvent) {
+        if (event.pointerId === pointer) pointer = undefined
+      }
+      const handle = left && right ? element('div', { class: 'cm-ratio-bar__handle', role: 'slider',
+        tabindex: props.disabled ? -1 : 0, 'aria-label': props.handleLabel ?? 'Divisão', 'aria-orientation': 'horizontal',
+        'aria-valuemin': minimum, 'aria-valuemax': maximum, 'aria-valuenow': left.value, 'aria-disabled': props.disabled || undefined,
+        'aria-valuetext': props.valueText?.(props.segments.map(segment => segment.value)), style: { left: percent(offset + left.value) },
+        onKeydown: keydown, onPointerdown: start, onPointermove: move, onPointerup: stop, onPointercancel: stop, onLostpointercapture: stop,
+      }) : null
+      return element('div', { ...attrs, class: classes('cm-ratio-bar', attrs.class), 'data-disabled': props.disabled ? '' : undefined,
         style: { '--cm-ratio-bar-height': typeof props.height === 'number' ? props.height + 'px' : props.height } }, [
-        element('div', { class: 'cm-ratio-bar__track' }, props.segments.map((segment, position) =>
+        element('div', { class: 'cm-ratio-bar__track', ref: track }, [...props.segments.map((segment, position) =>
           element('div', { key: segment.id ?? position,
-            class: 'cm-ratio-bar__segment cm-ratio-bar__segment--tone-' + (segment.tone ?? 'primary'),
+            class: 'cm-ratio-bar__segment cm-ratio-bar__segment--tone-' + (segment.tone ?? (position === 0 ? 'default' : 'primary')),
             style: { width: percent(Math.max(0, segment.value)) },
           }, [
             segment.label ? element('span', { class: 'cm-ratio-bar__segment-label' }, segment.label) : null,
             segment.valueLabel ? element('span', { class: 'cm-ratio-bar__segment-value' }, segment.valueLabel) : null,
-          ]))),
-        left && right ? element('input', { type: 'range', min: minimum, max: maximum, value: left.value,
-          step: props.step ?? Math.max(1, pair / 100), disabled: props.disabled, 'aria-label': props.handleLabel ?? 'Divisão',
-          style: { display: 'block', width: '100%' }, onInput: (event: Event) => commit(Number((event.target as HTMLInputElement).value)),
-        }) : null,
+          ])), handle]),
       ])
     }
   },
