@@ -45,7 +45,7 @@ export function slotValue(slots: Slots, attrs: Attributes, name: string) {
 function layout(name: string, kind: 'row' | 'stack' | 'col') {
   return component(name, (a, s) => {
     const {
-      as = 'div', class: className, style, gap, align = kind === 'stack' ? 'stretch' : undefined, justify,
+      as = 'div', class: className, style, gap, align = kind === 'row' ? 'center' : 'stretch', justify = 'start',
       wrap, fullWidth, grow, padding, paddingInline, paddingBlock, margin, marginInline, surface, radius, border,
       width, minWidth, maxWidth, height, minHeight, maxHeight, overflow, top, position, ...attrs
     } = a
