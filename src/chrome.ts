@@ -157,6 +157,29 @@ export const CmSidebar = defineComponent({
   emits: ['navigate'],
   setup(props, { slots, emit }) {
     const collapsed = ref(false)
+    const preview = ref(false)
+    const pinButton = ref<HTMLButtonElement>()
+    let closeTimer: ReturnType<typeof setTimeout> | undefined
+    function clearCloseTimer() { clearTimeout(closeTimer); closeTimer = undefined }
+    function openPreview() {
+      if (!collapsed.value || props.forceOpen) return
+      clearCloseTimer()
+      preview.value = true
+    }
+    function closePreview(delay = 700) {
+      if (!preview.value) return
+      clearCloseTimer()
+      closeTimer = setTimeout(() => { preview.value = false; closeTimer = undefined }, delay)
+    }
+    function togglePinned() {
+      const pinning = collapsed.value
+      collapsed.value = !pinning
+      clearCloseTimer()
+      preview.value = false
+      if (pinning) nextTick(() => pinButton.value?.focus({ preventScroll: true }))
+    }
+    watch(() => props.forceOpen, () => { clearCloseTimer(); preview.value = false })
+    onUnmounted(clearCloseTimer)
     const openGroup = ref<string | null>(null)
     const navigation = ref<HTMLElement>()
     const active = (item: SidebarItem) => item.active ?? props.activePathname === item.to
@@ -196,7 +219,7 @@ export const CmSidebar = defineComponent({
       const bindings = {
         class: classes('cm-sidebar__item', active(item) && 'cm-sidebar__item--active'),
         'aria-current': active(item) ? 'page' : undefined, title: item.label,
-        onClick: () => emit('navigate'),
+        onClick: () => { closePreview(1300); emit('navigate') },
       }
       const children: VNodeChild[] = [icon(itemIcon ?? item.icon, item.label, marker), element('span', { class: 'cm-sidebar__label' }, item.label)]
       return Node ? h(Node, { ...bindings, to: item.to }, { default: () => children })
@@ -205,26 +228,30 @@ export const CmSidebar = defineComponent({
     return () => {
       const compact = collapsed.value && !props.forceOpen
       return element('div', { class: classes('cm-sidebar-shell cm-sidebar-shell--standalone cm-sidebar-shell--tone-surface',
-        compact && 'cm-sidebar-shell--collapsed'), style: {
+        compact && 'cm-sidebar-shell--collapsed', compact && preview.value && 'cm-sidebar-shell--preview'), style: {
         '--cm-sidebar-expanded-width': typeof props.width === 'number' ? `${props.width}px` : props.width,
         '--cm-sidebar-min-height': typeof props.minHeight === 'number' ? `${props.minHeight}px` : props.minHeight,
       } }, [
         element('aside', { class: classes('cm-sidebar cm-sidebar--tone-surface', props.rail !== 'connectors' && 'cm-sidebar--rail-' + props.rail),
-          'aria-label': props.navLabel }, [
+          'aria-label': props.navLabel, onMouseenter: openPreview, onMouseleave: () => closePreview(), onFocusin: openPreview,
+          onFocusout: (event: FocusEvent) => {
+            if (!(event.relatedTarget instanceof Node) || !(event.currentTarget as HTMLElement).contains(event.relatedTarget)) closePreview()
+          },
+        }, [
           element('div', { class: 'cm-sidebar__brand' }, [
-            compact ? element('button', { class: 'cm-sidebar__brand-icon-button', type: 'button', 'aria-label': 'Expandir menu lateral',
-              onClick: () => { collapsed.value = false } }, element('span', { class: 'cm-sidebar__brand-icon' }, slots.brandIcon?.() ?? props.brand[0]))
+            compact ? element('button', { class: 'cm-sidebar__brand-icon-button', type: 'button', 'aria-label': 'Abrir menu lateral',
+              'aria-expanded': preview.value, onClick: togglePinned }, element('span', { class: 'cm-sidebar__brand-icon' }, slots.brandIcon?.() ?? props.brand[0]))
               : element('span', { class: 'cm-sidebar__brand-icon', 'aria-hidden': true }, slots.brandIcon?.() ?? props.brand[0]),
             element('div', { class: 'cm-sidebar__brand-text' }, element('strong', { title: props.brand }, props.brand)),
-            !compact && !props.forceOpen ? element('button', {
-              type: 'button', class: 'cm-sidebar__toggle', 'aria-label': 'Recolher menu lateral',
-              onClick: () => { collapsed.value = true },
-            }, chevron('left')) : null,
+            (!compact || preview.value) && !props.forceOpen ? element('button', {
+              type: 'button', ref: pinButton, class: 'cm-sidebar__toggle', 'aria-label': compact ? 'Expandir menu lateral' : 'Recolher menu lateral',
+              onClick: togglePinned,
+            }, chevron(compact ? 'right' : 'left')) : null,
           ]),
           element('nav', { class: 'cm-sidebar__nav', 'aria-label': props.navLabel, ref: navigation }, props.groups.map(group => {
             const isActive = group.items.some(active)
             const groupOpen = openGroup.value === group.id && !group.direct
-            const expanded = groupOpen && !compact
+            const expanded = groupOpen && (!compact || preview.value)
             return element('div', { key: group.id, class: classes('cm-sidebar__group',
               isActive && 'cm-sidebar__group--active', groupOpen && 'cm-sidebar__group--open') },
             group.direct ? link(group.items[0], group.icon, false) : [
@@ -232,8 +259,8 @@ export const CmSidebar = defineComponent({
                 type: 'button', class: classes('cm-sidebar__group-trigger', isActive && 'cm-sidebar__group-trigger--active'),
                 'aria-expanded': expanded, title: group.label,
                 onClick: () => {
-                  if (compact) collapsed.value = false
-                  openGroup.value = expanded ? null : group.id
+                  openPreview()
+                  openGroup.value = groupOpen ? null : group.id
                 },
               }, [icon(group.icon, group.label), element('span', { class: 'cm-sidebar__label' }, group.label),
                 chevron('right', 'cm-sidebar__chevron')]),
