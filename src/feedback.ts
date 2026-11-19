@@ -213,19 +213,27 @@ export const CmDialog = defineComponent({
     let previous: HTMLElement | undefined
     let wasOverflow = ''
     const close = () => { emit('update:open', false); emit('close') }
+    function focusableControls() {
+      const selector = 'a[href], button, input:not([type="hidden"]), select, textarea, [tabindex], [contenteditable="true"]'
+      return Array.from(dialog.value?.querySelectorAll<HTMLElement>(selector) ?? []).filter(el =>
+        el.tabIndex >= 0 && !el.matches(':disabled') && !el.closest('[hidden],[inert],[aria-hidden="true"]') &&
+        el.getClientRects().length > 0 && getComputedStyle(el).visibility === 'visible')
+    }
     function keydown(event: KeyboardEvent) {
       if (event.key === 'Escape') { event.preventDefault(); close(); return }
       if (event.key !== 'Tab' || !dialog.value) return
-      const focusable = [...dialog.value.querySelectorAll<HTMLElement>('a[href],button:not(:disabled),input:not(:disabled),textarea,select,[tabindex="0"]')]
+      const focusable = focusableControls()
       const first = focusable[0]
       const last = focusable.at(-1)
+      if (!first) { event.preventDefault(); dialog.value.focus(); return }
+      if (document.activeElement === dialog.value) { event.preventDefault(); (event.shiftKey ? last : first)?.focus(); return }
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
     }
     function restore() {
       if (typeof document === 'undefined' || !previous) return
       document.body.style.overflow = wasOverflow
-      previous.focus({ preventScroll: true })
+      if (previous.isConnected) previous.focus({ preventScroll: true })
       previous = undefined
     }
     watch(() => props.open, async isOpen => {
@@ -235,8 +243,10 @@ export const CmDialog = defineComponent({
       wasOverflow = document.body.style.overflow
       document.body.style.overflow = 'hidden'
       await nextTick()
-      const first = dialog.value?.querySelector<HTMLElement>('input:not([type="hidden"]), select, textarea')
-      ;(first ?? dialog.value)?.focus()
+      if (!props.open || !dialog.value) return
+      const controls = focusableControls()
+      const first = controls.find(el => el.matches('input,select,textarea')) ?? controls[0] ?? dialog.value
+      first.focus({ preventScroll: true })
     }, { immediate: true })
     onUnmounted(restore)
     return () => props.open ? h(Teleport, { to: 'body' }, [element('div', { class: 'cm-dialog-portal-scope' }, [
