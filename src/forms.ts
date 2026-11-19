@@ -1,14 +1,22 @@
 import { defineComponent, h, ref, useId } from 'vue'
 import { classes, component, element, normalizeAttrs, spacing } from './primitives.js'
 
+const buttonPresentations: Record<string, string> = {
+  primaryAction: 'cm-button--primary-action',
+  secondaryAction: 'cm-button--secondary-action',
+  tableAction: 'cm-button--table-action',
+  modalClose: 'cm-button--modal-close',
+  modalPrimaryAction: 'cm-button--modal-primary-action',
+}
+
 export const CmButton = component('CmButton', (a, s) => {
   const { as = 'button', type = 'button', variant = 'solid', tone = 'default', size = 'md', shape = 'default',
-    fullWidth, iconOnly, loading, loadingLabel, unstyled, disabled, class: className, ...attrs } = a
+    presentation = 'default', fullWidth, iconOnly, loading, loadingLabel, unstyled, disabled, class: className, ...attrs } = a
   const isIconOnly = iconOnly !== undefined && iconOnly !== false
   const buttonClass = unstyled !== undefined && unstyled !== false ? className : classes('cm-button',
     'cm-button--' + variant, 'cm-button--tone-' + tone, 'cm-button--shape-' + shape,
     'cm-button--' + (isIconOnly ? 'icon-' : '') + size,
-    fullWidth !== undefined && fullWidth !== false && 'cm-button--full-width', className)
+    fullWidth !== undefined && fullWidth !== false && 'cm-button--full-width', buttonPresentations[presentation], className)
   return element(as, { ...attrs, class: buttonClass, type: as === 'button' ? type : undefined,
     disabled: as === 'button' && (disabled === '' || disabled || loading), 'aria-busy': loading || undefined }, [
     loading ? element('span', { class: 'cm-button__icon cm-button__spinner', 'aria-hidden': true }, '◌')

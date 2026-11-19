@@ -123,7 +123,7 @@ export const CmSectionHeader = component('CmSectionHeader', (a, s) => {
   const { title, description, headingLevel = 2, bordered, padded, class: className, ...attrs } = a
   const content = element('div', { class: 'cm-section-header__content' }, [
     element('h' + headingLevel, { class: 'cm-section-header__title' }, s.title?.() ?? title),
-    description ? element('p', { class: 'cm-section-header__description' }, description) : null,
+    (s.description || description) ? element('p', { class: 'cm-section-header__description' }, s.description?.() ?? description) : null,
   ])
   return element('header', { ...attrs, class: classes('cm-section-header', bordered && 'cm-section-header--bordered', padded && 'cm-section-header--padded', className) }, [
     s.icon ? h(CmRow, { gap: 'sm', minWidth: 0 }, { default: () => [
@@ -168,10 +168,11 @@ export const CmGridContainer = component('CmGridContainer', (a, s) => {
     rowSpacing, columnSpacing, templateColumns, autoFit, autoFill, minColumnWidth, variant, ...attrs } = a
   const presetWidth = { filters: '12rem', metrics: '14rem', form: '16rem' }[preset as 'form']
   const template = templateColumns !== undefined
-  const automatic = !template && (autoFit !== undefined || autoFill !== undefined || minColumnWidth !== undefined || presetWidth !== undefined)
+  const automatic = !template && ((autoFit !== undefined && autoFit !== false) || (autoFill !== undefined && autoFill !== false) ||
+    minColumnWidth !== undefined || presetWidth !== undefined)
   const resolved = responsive(columns ?? { base: 1, md: 2, xl: 4 }, 1)
-  const rows = responsive(rowSpacing ?? rowGap ?? gap, 'md')
-  const colGaps = responsive(columnSpacing ?? columnGap ?? gap, 'md')
+  const rows = responsive(rowSpacing ?? rowGap ?? gap, '1rem')
+  const colGaps = responsive(columnSpacing ?? columnGap ?? gap, '1rem')
   const widths = responsive(minColumnWidth, presetWidth ?? '16rem')
   const tracks = responsive(templateColumns, 'minmax(0, 1fr)')
   const variables: Record<string, unknown> = {}

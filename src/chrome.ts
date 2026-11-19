@@ -146,6 +146,7 @@ export const CmSidebar = defineComponent({
   props: {
     groups: { type: Array as () => SidebarGroup[], required: true },
     activePathname: { type: String, required: true },
+    defaultOpenGroup: String,
     navLabel: { type: String, default: 'Navegação principal' },
     brand: { type: String, default: 'Menu' },
     linkComponent: [Object, Function],
@@ -183,8 +184,8 @@ export const CmSidebar = defineComponent({
     const openGroup = ref<string | null>(null)
     const navigation = ref<HTMLElement>()
     const active = (item: SidebarItem) => item.active ?? props.activePathname === item.to
-    watch(() => props.activePathname, () => {
-      openGroup.value = props.groups.find(group => group.items.some(active))?.id ?? null
+    watch([() => props.activePathname, () => props.defaultOpenGroup], () => {
+      openGroup.value = props.groups.find(group => !group.direct && group.items.some(active))?.id ?? props.defaultOpenGroup ?? null
     }, { immediate: true })
     watch([() => props.activePathname, navigation], async (_, __, onCleanup) => {
       const link = navigation.value?.querySelector<HTMLElement>('.cm-sidebar__group-items > .cm-sidebar__item[aria-current="page"]')
