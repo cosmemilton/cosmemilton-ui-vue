@@ -19,7 +19,8 @@ export const CmFrame = component('CmFrame', (a) => {
 
 export const CmPagination = defineComponent({
   name: 'CmPagination',
-  props: { page: { type: Number, default: 1 }, pageCount: { type: Number, default: 1 }, totalPages: Number },
+  props: { page: { type: Number, default: 1 }, pageCount: { type: Number, default: 1 }, totalPages: Number,
+    mode: String, previousLabel: String, nextLabel: String },
   emits: ['change', 'update:page'],
   setup(props, { emit }) {
     const maximum = computed(() => Math.max(1, props.totalPages ?? props.pageCount))
@@ -27,10 +28,12 @@ export const CmPagination = defineComponent({
       if (page < 1 || page > maximum.value || page === props.page) return
       emit('update:page', page); emit('change', page)
     }
-    return () => element('nav', { class: 'cm-pagination', 'aria-label': 'Paginação' }, [
-      h(CmButton, { variant: 'outline', size: 'sm', 'aria-label': 'Página anterior', disabled: props.page <= 1, onClick: () => change(props.page - 1) }, { default: () => '‹' }),
+    return () => element('nav', { class: classes('cm-pagination', props.mode === 'compact' && 'cm-pagination--compact'), 'aria-label': 'Paginação' }, [
+      h(CmButton, { variant: 'outline', size: 'sm', 'aria-label': props.previousLabel ?? 'Página anterior', disabled: props.page <= 1, onClick: () => change(props.page - 1) },
+        { default: () => props.previousLabel ?? (props.mode === 'compact' ? 'Anterior' : '‹') }),
       element('span', { class: 'cm-pagination__summary', 'aria-live': 'polite' }, 'Página ' + props.page + ' de ' + maximum.value),
-      h(CmButton, { variant: 'outline', size: 'sm', 'aria-label': 'Próxima página', disabled: props.page >= maximum.value, onClick: () => change(props.page + 1) }, { default: () => '›' }),
+      h(CmButton, { variant: 'outline', size: 'sm', 'aria-label': props.nextLabel ?? 'Próxima página', disabled: props.page >= maximum.value, onClick: () => change(props.page + 1) },
+        { default: () => props.nextLabel ?? (props.mode === 'compact' ? 'Próximo' : '›') }),
     ])
   },
 })

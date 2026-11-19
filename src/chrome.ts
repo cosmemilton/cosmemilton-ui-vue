@@ -150,6 +150,9 @@ export const CmSidebar = defineComponent({
     brand: { type: String, default: 'Menu' },
     linkComponent: [Object, Function],
     forceOpen: Boolean,
+    width: [Number, String],
+    minHeight: [Number, String],
+    rail: { type: String, default: 'connectors' },
   },
   emits: ['navigate'],
   setup(props, { slots, emit }) {
@@ -159,25 +162,34 @@ export const CmSidebar = defineComponent({
     watch(() => props.activePathname, () => {
       openGroup.value = props.groups.find(group => group.items.some(active))?.id ?? null
     }, { immediate: true })
-    const icon = (component?: Component) => component
-      ? element('span', { class: 'cm-sidebar__icon', 'aria-hidden': true }, h(component, { size: 18 }))
-      : null
-    const link = (item: SidebarItem, itemIcon?: Component) => {
+    const icon = (component: Component | undefined, label: string, marker = false) => element('span', {
+      class: classes('cm-sidebar__nav-icon', !component && (marker ? 'cm-sidebar__nav-icon--marker' : 'cm-sidebar__nav-icon--fallback')),
+      'aria-hidden': true,
+    }, component ? h(component, { size: 18 }) : marker ? null : label.trim().slice(0, 1).toUpperCase())
+    const chevron = (direction: 'left' | 'right', className?: string) => element('svg', {
+      class: className, width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
+      'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': true,
+    }, element('path', { d: direction === 'left' ? 'm15 18-6-6 6-6' : 'm9 18 6-6-6-6' }))
+    const link = (item: SidebarItem, itemIcon?: Component, marker = true) => {
       const Node = props.linkComponent as Component | undefined
       const bindings = {
         class: classes('cm-sidebar__item', active(item) && 'cm-sidebar__item--active'),
         'aria-current': active(item) ? 'page' : undefined, title: item.label,
         onClick: () => emit('navigate'),
       }
-      const children: VNodeChild[] = [icon(itemIcon ?? item.icon), element('span', { class: 'cm-sidebar__label' }, item.label)]
+      const children: VNodeChild[] = [icon(itemIcon ?? item.icon, item.label, marker), element('span', { class: 'cm-sidebar__label' }, item.label)]
       return Node ? h(Node, { ...bindings, to: item.to }, { default: () => children })
         : element('a', { ...bindings, href: item.to }, children)
     }
     return () => {
       const compact = collapsed.value && !props.forceOpen
       return element('div', { class: classes('cm-sidebar-shell cm-sidebar-shell--standalone cm-sidebar-shell--tone-surface',
-        compact && 'cm-sidebar-shell--collapsed') }, [
-        element('aside', { class: 'cm-sidebar cm-sidebar--tone-surface', 'aria-label': props.navLabel }, [
+        compact && 'cm-sidebar-shell--collapsed'), style: {
+        '--cm-sidebar-expanded-width': typeof props.width === 'number' ? `${props.width}px` : props.width,
+        '--cm-sidebar-min-height': typeof props.minHeight === 'number' ? `${props.minHeight}px` : props.minHeight,
+      } }, [
+        element('aside', { class: classes('cm-sidebar cm-sidebar--tone-surface', props.rail !== 'connectors' && 'cm-sidebar--rail-' + props.rail),
+          'aria-label': props.navLabel }, [
           element('div', { class: 'cm-sidebar__brand' }, [
             compact ? element('button', { class: 'cm-sidebar__brand-icon-button', type: 'button', 'aria-label': 'Expandir menu lateral',
               onClick: () => { collapsed.value = false } }, element('span', { class: 'cm-sidebar__brand-icon' }, slots.brandIcon?.() ?? props.brand[0]))
@@ -186,7 +198,7 @@ export const CmSidebar = defineComponent({
             !compact && !props.forceOpen ? element('button', {
               type: 'button', class: 'cm-sidebar__toggle', 'aria-label': 'Recolher menu lateral',
               onClick: () => { collapsed.value = true },
-            }, '‹') : null,
+            }, chevron('left')) : null,
           ]),
           element('nav', { class: 'cm-sidebar__nav', 'aria-label': props.navLabel }, props.groups.map(group => {
             const isActive = group.items.some(active)
@@ -194,7 +206,7 @@ export const CmSidebar = defineComponent({
             const expanded = groupOpen && !compact
             return element('div', { key: group.id, class: classes('cm-sidebar__group',
               isActive && 'cm-sidebar__group--active', groupOpen && 'cm-sidebar__group--open') },
-            group.direct ? link(group.items[0], group.icon) : [
+            group.direct ? link(group.items[0], group.icon, false) : [
               element('button', {
                 type: 'button', class: classes('cm-sidebar__group-trigger', isActive && 'cm-sidebar__group-trigger--active'),
                 'aria-expanded': expanded, title: group.label,
@@ -202,8 +214,8 @@ export const CmSidebar = defineComponent({
                   if (compact) collapsed.value = false
                   openGroup.value = expanded ? null : group.id
                 },
-              }, [icon(group.icon), element('span', { class: 'cm-sidebar__label' }, group.label),
-                element('span', { class: 'cm-sidebar__chevron', 'aria-hidden': true }, '›')]),
+              }, [icon(group.icon, group.label), element('span', { class: 'cm-sidebar__label' }, group.label),
+                chevron('right', 'cm-sidebar__chevron')]),
               element('div', { class: 'cm-sidebar__group-items', 'aria-hidden': !expanded, inert: !expanded },
                 group.items.map(item => link(item))),
             ])
