@@ -1,6 +1,7 @@
-import { computed, defineComponent, h, onMounted, ref, watch, type PropType, type VNodeChild } from 'vue'
-import { CmButton, CmCheckbox, CmNativeSelect } from './forms.js'
+import { computed, defineComponent, h, onMounted, onUnmounted, ref, watch, type PropType, type VNodeChild } from 'vue'
+import { CmButton, CmCheckbox } from './forms.js'
 import { CmDialog } from './feedback.js'
+import { CmPagination } from './extra.js'
 import { CmEmpty, classes, element } from './primitives.js'
 
 export type CmTableColumn = {
@@ -10,6 +11,7 @@ export type CmTableColumn = {
   hideable?: boolean
   defaultHidden?: boolean
   align?: 'left' | 'center' | 'right'
+  footer?: VNodeChild
 }
 
 export type CmTableRow = { id: string | number; cells: Record<string, unknown> }
@@ -37,15 +39,20 @@ export const CmDataTable = defineComponent({
     emptyDescription: String,
     pageSize: { type: Number, default: 10 },
     pageSizes: { type: Array as PropType<number[]>, default: () => sizes },
+    pageResetKey: [String, Number],
     columnSettings: { type: Boolean, default: true },
     minWidth: Number,
     density: String,
     pagination: { type: Boolean, default: true },
-    recordName: { type: String, default: 'registros' },
+    recordName: String,
   },
   setup(props, { slots }) {
     const page = ref(1)
     const pageSize = ref(props.pageSize)
+    const scroll = ref<HTMLElement>()
+    const table = ref<HTMLTableElement>()
+    const hasOverflow = ref(false)
+    let observer: ResizeObserver | undefined
     const sort = ref<{ key: string; direction: 'ascending' | 'descending' }>()
     const columnsOpen = ref(false)
     const initialHidden = () => props.columns.filter(column => column.defaultHidden).map(column => column.key)
@@ -75,7 +82,26 @@ export const CmDataTable = defineComponent({
         }
       } catch {}
     }
-    onMounted(readHidden)
+    function measureOverflow() {
+      hasOverflow.value = scroll.value ? scroll.value.scrollWidth > scroll.value.clientWidth + 1 : false
+    }
+    watch([scroll, table], ([viewport, content], [previousViewport, previousContent]) => {
+      if (previousViewport) observer?.unobserve(previousViewport)
+      if (previousContent) observer?.unobserve(previousContent)
+      if (viewport) observer?.observe(viewport)
+      if (content) observer?.observe(content)
+      measureOverflow()
+    }, { flush: 'post' })
+    onMounted(() => {
+      readHidden()
+      if (typeof ResizeObserver === 'undefined') return
+      observer = new ResizeObserver(measureOverflow)
+      if (scroll.value) observer.observe(scroll.value)
+      if (table.value) observer.observe(table.value)
+      measureOverflow()
+    })
+    onUnmounted(() => observer?.disconnect())
+    watch(() => props.pageResetKey, () => { page.value = 1 })
     function saveHidden(next: string[]) {
       hidden.value = next
       if (!props.tableKey) return
@@ -94,48 +120,76 @@ export const CmDataTable = defineComponent({
     }, { default: () => '☷' })
     const renderCell = (row: CmTableRow, column: CmTableColumn): VNodeChild =>
       slots.cell?.({ row, column, value: row.cells[column.key] }) ?? String(cellValue(row.cells[column.key]))
-    const navigation = () => element('div', { class: 'cm-data-table__pagination', 'aria-label': 'Paginação' }, [
-      element('div', { class: 'cm-data-table__pagination-group' }, [
-        element('span', { class: 'cm-data-table__pagination-text' },
-          sorted.value.length ? ((page.value - 1) * pageSize.value + 1) + '–' + Math.min(page.value * pageSize.value, sorted.value.length) + ' de ' + sorted.value.length + ' ' + props.recordName : '0 ' + props.recordName),
-        props.pageSizes.length > 1 ? h(CmNativeSelect, {
-          modelValue: String(pageSize.value), 'onUpdate:modelValue': (value: string) => { pageSize.value = Number(value) },
-          'aria-label': 'Itens por página', class: 'cm-data-table__page-size',
-          options: props.pageSizes.map(value => ({ value: String(value), label: String(value) })),
-        }) : null,
-      ]),
-      element('div', { class: 'cm-data-table__pagination-group' }, [
-        h(CmButton, { size: 'sm', variant: 'outline', disabled: page.value <= 1, 'aria-label': 'Página anterior', onClick: () => page.value-- }, { default: () => '‹' }),
-        element('span', { class: 'cm-data-table__pagination-text' }, 'Página ' + page.value + ' de ' + maxPage.value),
-        h(CmButton, { size: 'sm', variant: 'outline', disabled: page.value >= maxPage.value, 'aria-label': 'Próxima página', onClick: () => page.value++ }, { default: () => '›' }),
-      ]),
-    ])
+    const label = computed(() => props.label?.trim() || 'Tabela de dados')
+    function navigation() {
+      const first = (page.value - 1) * pageSize.value + 1
+      const end = Math.min(page.value * pageSize.value, sorted.value.length)
+      const range = `${first}-${end} de ${sorted.value.length}${props.recordName ? ' ' + props.recordName : ''}`
+      return element('div', { class: 'cm-data-table__foot cm-data-table__pagination-cell' },
+        element('div', { class: 'cm-data-table__pagination' }, [
+          element('div', { class: 'cm-data-table__pagination-group' }, [
+            props.pageSizes.length > 1 ? [
+              element('span', { class: 'cm-data-table__pagination-text' }, 'Linhas por página:'),
+              element('select', { value: pageSize.value, 'aria-label': 'Linhas por página', class: 'cm-data-table__page-size',
+                onChange: (event: Event) => { pageSize.value = Number((event.target as HTMLSelectElement).value) },
+              }, props.pageSizes.map(size => element('option', { key: size, value: size }, String(size)))),
+            ] : null,
+            element('span', { class: 'cm-data-table__pagination-text' }, range),
+          ]),
+          h(CmPagination, { page: page.value, totalPages: maxPage.value, mode: 'compact', nextLabel: 'Próxima',
+            'onUpdate:page': (next: number) => { page.value = next },
+          }),
+        ]))
+    }
+    function footer() {
+      if (slots.totals) return element('tfoot', { class: 'cm-data-table__footer' }, slots.totals({ columns: visible.value }))
+      if (!visible.value.some(column => column.footer != null)) return null
+      return element('tfoot', { class: 'cm-data-table__footer' }, element('tr', {}, [
+        props.columnSettings ? element('td', { class: 'cm-data-table__toggle-spacer' }) : null,
+        ...visible.value.map(column => {
+          const rowHeading = column.key === props.columns[0]?.key && column.footer != null
+          return element(rowHeading ? 'th' : 'td', { key: column.key, scope: rowHeading ? 'row' : undefined,
+            class: 'cm-data-table__cell cm-data-table__cell--' + (column.align ?? 'left'),
+          }, column.footer)
+        }),
+      ]))
+    }
     return () => [
-      element('div', { class: classes('cm-data-table', props.density && 'cm-density-' + props.density) }, [
-        element('div', { class: 'cm-table-scroll', tabindex: 0, role: 'region', 'aria-label': props.label }, [
-          element('table', { class: 'cm-data-table__table', style: { minWidth: props.minWidth ? props.minWidth + 'px' : undefined } }, [
+      element('div', { class: classes('cm-data-table data-table-root', !pageRows.value.length && 'cm-data-table--empty',
+        props.density && 'cm-density-' + props.density) }, !pageRows.value.length ? [
+        element('div', { class: 'cm-data-table-empty' }, h(CmEmpty, {
+          class: 'cm-data-table-empty__content', title: props.emptyTitle, description: props.emptyDescription,
+        }, { icon: slots.emptyIcon, actions: slots.emptyActions })),
+      ] : [
+        element('div', { class: 'cm-data-table__viewport' }, element('div', {
+          class: 'cm-data-table__scroll', ref: scroll, tabindex: hasOverflow.value ? 0 : undefined,
+          role: hasOverflow.value ? 'region' : undefined, 'aria-label': hasOverflow.value ? label.value : undefined,
+        }, [
+          element('table', { class: 'cm-data-table__table', ref: table, 'aria-label': label.value,
+            style: { minWidth: props.minWidth ? props.minWidth + 'px' : undefined } }, [
             element('thead', { class: 'cm-data-table__head' }, element('tr', {}, [
+              props.columnSettings ? element('th', { scope: 'col', class: 'cm-data-table__toggle-cell' }, settings()) : null,
               ...visible.value.map(column => element('th', { key: column.key, scope: 'col',
-                class: 'cm-data-table__header', 'aria-sort': sort.value?.key === column.key ? sort.value.direction : undefined },
+                class: classes('cm-data-table__header', 'cm-data-table__cell--' + (column.align ?? 'left'),
+                  column.sortable && 'cm-data-table__header--sortable'),
+                'aria-sort': sort.value?.key === column.key ? sort.value.direction : undefined },
               column.sortable ? element('button', {
-                type: 'button', class: 'cm-data-table__header--sortable cm-data-table__header-content' + (column.align ? ' cm-data-table__header-content--' + column.align : ''),
+                type: 'button', class: 'cm-data-table__header-content' + (column.align ? ' cm-data-table__header-content--' + column.align : ''),
                 onClick: () => toggle(column),
               }, [column.header, element('span', { class: 'cm-data-table__sort-icon', 'aria-hidden': true },
                 sort.value?.key === column.key ? sort.value.direction === 'ascending' ? '↑' : '↓' : '↕')])
                 : element('span', { class: 'cm-data-table__header-content' + (column.align ? ' cm-data-table__header-content--' + column.align : '') }, column.header))),
-              props.columnSettings ? element('th', { scope: 'col', class: 'cm-data-table__toggle-cell' }, settings()) : null,
             ])),
-            element('tbody', { class: 'cm-data-table__body' }, pageRows.value.length ? pageRows.value.map((row, index) =>
+            element('tbody', { class: 'cm-data-table__body' }, pageRows.value.map((row, index) =>
               element('tr', { key: row.id, class: classes('cm-data-table__row cm-data-table__row--hoverable', index % 2 && 'cm-data-table__row--zebra') }, [
+                props.columnSettings ? element('td', { class: 'cm-data-table__toggle-spacer' }) : null,
                 ...visible.value.map(column => element('td', {
                   key: column.key, class: 'cm-data-table__cell cm-data-table__cell--' + (column.align ?? 'left'),
                 }, renderCell(row, column))),
-                props.columnSettings ? element('td', { class: 'cm-data-table__toggle-spacer' }) : null,
-              ])) : element('tr', {}, element('td', { colspan: visible.value.length + Number(props.columnSettings) },
-                h(CmEmpty, { title: props.emptyTitle, description: props.emptyDescription })))),
-            slots.totals ? element('tfoot', { class: 'cm-data-table__foot' }, slots.totals({ columns: visible.value })) : null,
+              ]))),
+            footer(),
           ]),
-        ]),
+        ])),
         props.pagination ? navigation() : null,
       ]),
       h(CmDialog, { open: columnsOpen.value, title: 'Configurar colunas', onClose: () => { columnsOpen.value = false } }, {

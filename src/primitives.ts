@@ -221,12 +221,13 @@ export const CmStatusDot = component('CmStatusDot', (a) => {
 })
 
 export const CmSeparator = component('CmSeparator', (a) => {
-  const { orientation = 'horizontal', class: className, ...attrs } = a
-  return element('div', { ...attrs, role: 'separator', 'aria-orientation': orientation,
-    class: classes('cm-separator', 'cm-separator--' + orientation, className) })
+  const { orientation = 'horizontal', spacing: gap = 'md', length, class: className, style, ...attrs } = a
+  return element('span', { ...attrs, role: 'separator', 'aria-orientation': orientation === 'vertical' ? orientation : undefined,
+    class: classes('cm-separator', 'cm-separator--' + orientation, 'cm-separator--spacing-' + gap, className),
+    style: [{ '--cm-separator-length': typeof length === 'number' ? `${length}px` : length }, style] })
 })
 
-export const CmEmpty = component('CmEmpty', (a, s) => element('div', { class: 'cm-empty' }, [
+export const CmEmpty = component('CmEmpty', (a, s) => element('div', { class: classes('cm-empty', a.class) }, [
   s.icon ? element('div', { class: 'cm-empty__icon' }, s.icon()) : null,
   element('h3', { class: 'cm-empty__title' }, a.title ?? 'Nenhum resultado'),
   a.description ? element('p', { class: 'cm-empty__description' }, a.description) : null,

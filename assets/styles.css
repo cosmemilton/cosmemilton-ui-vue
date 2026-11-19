@@ -1560,8 +1560,7 @@ canvas {
   color: currentColor;
 }
 
-.cm-sidebar__nav-icon>svg,
-.cm-sidebar-shell--collapsed:not(.cm-sidebar-shell--preview) .cm-sidebar__icon>svg {
+.cm-sidebar__nav-icon>svg {
   width: 1.25rem;
   height: 1.25rem;
 }
@@ -4594,7 +4593,8 @@ canvas {
   flex-wrap: wrap
 }
 
-.cm-button-group--horizontal>.cm-button {
+.cm-button-group--horizontal>.cm-button,
+.cm-button-group--horizontal>.cm-vue-menu>.cm-button {
   flex: 1 1 auto;
   white-space: normal;
   overflow-wrap: anywhere
@@ -4620,7 +4620,8 @@ canvas {
   overflow: visible
 }
 
-.cm-button-group--joined>.cm-button {
+.cm-button-group--joined>.cm-button,
+.cm-button-group--joined>.cm-vue-menu>.cm-button {
   position: relative;
   border-radius: 0;
   box-shadow: none
@@ -4628,34 +4629,39 @@ canvas {
 
 .cm-button-group--joined>.cm-button:hover,
 .cm-button-group--joined>.cm-button:focus-visible,
-.cm-button-group--joined>.cm-button.cm-button--active {
+.cm-button-group--joined>.cm-button.cm-button--active,
+.cm-button-group--joined>.cm-vue-menu>.cm-button:is(:hover, :focus-visible, .cm-button--active) {
   z-index: 1
 }
 
-.cm-button-group--joined.cm-button-group--horizontal>.cm-button+.cm-button {
+.cm-button-group--joined.cm-button-group--horizontal>:is(.cm-button, .cm-vue-menu)+:is(.cm-button, .cm-vue-menu) {
   margin-left: -1px
 }
 
-.cm-button-group--joined.cm-button-group--vertical>.cm-button+.cm-button {
+.cm-button-group--joined.cm-button-group--vertical>:is(.cm-button, .cm-vue-menu)+:is(.cm-button, .cm-vue-menu) {
   margin-top: -1px
 }
 
-.cm-button-group--joined.cm-button-group--horizontal>.cm-button:first-child {
+.cm-button-group--joined.cm-button-group--horizontal>.cm-button:first-child,
+.cm-button-group--joined.cm-button-group--horizontal>.cm-vue-menu:first-child>.cm-button {
   border-top-left-radius: calc(var(--radius-md) - 1px);
   border-bottom-left-radius: calc(var(--radius-md) - 1px)
 }
 
-.cm-button-group--joined.cm-button-group--horizontal>.cm-button:last-child {
+.cm-button-group--joined.cm-button-group--horizontal>.cm-button:last-child,
+.cm-button-group--joined.cm-button-group--horizontal>.cm-vue-menu:last-child>.cm-button {
   border-top-right-radius: calc(var(--radius-md) - 1px);
   border-bottom-right-radius: calc(var(--radius-md) - 1px)
 }
 
-.cm-button-group--joined.cm-button-group--vertical>.cm-button:first-child {
+.cm-button-group--joined.cm-button-group--vertical>.cm-button:first-child,
+.cm-button-group--joined.cm-button-group--vertical>.cm-vue-menu:first-child>.cm-button {
   border-top-left-radius: calc(var(--radius-md) - 1px);
   border-top-right-radius: calc(var(--radius-md) - 1px)
 }
 
-.cm-button-group--joined.cm-button-group--vertical>.cm-button:last-child {
+.cm-button-group--joined.cm-button-group--vertical>.cm-button:last-child,
+.cm-button-group--joined.cm-button-group--vertical>.cm-vue-menu:last-child>.cm-button {
   border-bottom-right-radius: calc(var(--radius-md) - 1px);
   border-bottom-left-radius: calc(var(--radius-md) - 1px)
 }
@@ -8420,6 +8426,20 @@ button.cm-data-table__header-content:focus-visible,
 .cm-popover__panel > * {
   min-width: 0;
   max-width: 100%
+}
+
+.cm-vue-menu { display: inline-flex; }
+
+.cm-vue-dropdown-panel {
+  z-index: var(--z-dropdown);
+  min-width: min(14rem, calc(100vw - 1rem));
+  overflow-y: auto;
+  transition-property: none;
+}
+
+.cm-vue-dropdown-panel.cm-theme-scope {
+  background: var(--color-popover, var(--color-card));
+  color: var(--color-popover-foreground, var(--color-foreground));
 }
 
 /* Floating controls wrapped by CmField already get their label space from CmField. */
@@ -14369,15 +14389,15 @@ html[data-cm-skin="aurora-ops"] .cm-button {
   font-weight: 650;
 }
 
-html[data-cm-skin="aurora-ops"] .cm-button--shape-default:where(:not(.cm-button-group--joined > .cm-button)) {
+html[data-cm-skin="aurora-ops"] .cm-button--shape-default:where(:not(.cm-button-group--joined > .cm-button, .cm-button-group--joined > .cm-vue-menu > .cm-button)) {
   border-radius: var(--cm-ops-control-radius);
 }
 
-html[data-cm-skin="aurora-ops"] .cm-button--surface:where(:not(.cm-button-group--joined > .cm-button)) {
+html[data-cm-skin="aurora-ops"] .cm-button--surface:where(:not(.cm-button-group--joined > .cm-button, .cm-button-group--joined > .cm-vue-menu > .cm-button)) {
   box-shadow: var(--cm-ops-panel-shadow);
 }
 
-html[data-cm-skin="aurora-ops"] .cm-button--solid.cm-button--tone-primary:where(:not(.cm-button-group--joined > .cm-button, :disabled)) {
+html[data-cm-skin="aurora-ops"] .cm-button--solid.cm-button--tone-primary:where(:not(.cm-button-group--joined > .cm-button, .cm-button-group--joined > .cm-vue-menu > .cm-button, :disabled)) {
   box-shadow: 0 2px 5px color-mix(in srgb, var(--color-primary) 23%, transparent);
 }
 
