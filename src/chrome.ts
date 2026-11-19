@@ -190,9 +190,10 @@ export const CmSidebar = defineComponent({
           ]),
           element('nav', { class: 'cm-sidebar__nav', 'aria-label': props.navLabel }, props.groups.map(group => {
             const isActive = group.items.some(active)
-            const expanded = openGroup.value === group.id && !compact
+            const groupOpen = openGroup.value === group.id && !group.direct
+            const expanded = groupOpen && !compact
             return element('div', { key: group.id, class: classes('cm-sidebar__group',
-              isActive && 'cm-sidebar__group--active', expanded && 'cm-sidebar__group--open') },
+              isActive && 'cm-sidebar__group--active', groupOpen && 'cm-sidebar__group--open') },
             group.direct ? link(group.items[0], group.icon) : [
               element('button', {
                 type: 'button', class: classes('cm-sidebar__group-trigger', isActive && 'cm-sidebar__group-trigger--active'),

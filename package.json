@@ -1,6 +1,6 @@
 {
   "name": "@cosmemilton/ui-vue",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "license": "ISC",
   "description": "Componentes Vue 3 e Nuxt da CosmeMilton UI.",
   "type": "module",
