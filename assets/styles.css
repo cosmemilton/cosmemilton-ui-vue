@@ -1560,7 +1560,8 @@ canvas {
   color: currentColor;
 }
 
-.cm-sidebar__nav-icon>svg {
+.cm-sidebar__nav-icon>svg,
+.cm-sidebar-shell--collapsed:not(.cm-sidebar-shell--preview) .cm-sidebar__icon>svg {
   width: 1.25rem;
   height: 1.25rem;
 }
@@ -14350,6 +14351,12 @@ html[data-cm-skin="aurora-ops"] :is([data-density="compact"], .cm-sidebar-shell.
 html[data-cm-skin="aurora-ops"] .cm-sidebar-shell--collapsed:not(.cm-sidebar-shell--preview)
   :is(.cm-sidebar__group-trigger, .cm-sidebar__item) {
   min-height: 2.75rem;
+}
+
+html[data-cm-skin="aurora-ops"] .cm-sidebar-shell--collapsed:not(.cm-sidebar-shell--preview)
+  .cm-sidebar__group--open > .cm-sidebar__group-trigger {
+  background: var(--cm-ops-nav-hover);
+  color: var(--cm-ops-nav-foreground);
 }
 
 html[data-cm-skin="aurora-ops"] .cm-sidebar
