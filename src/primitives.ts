@@ -6,6 +6,11 @@ export function classes(...values: unknown[]) {
   return values.filter(Boolean) as string[]
 }
 
+export function barThicknessPixels(value?: number | string) {
+  const pixels = typeof value === 'number' ? value : ({ xs: 4, sm: 8, md: 12, lg: 16 } as Record<string, number>)[value ?? '']
+  return pixels && Number.isFinite(pixels) && pixels > 0 ? pixels + 'px' : undefined
+}
+
 export function spacing(value: unknown, fallback = 'var(--space-lg)') {
   if (typeof value === 'number') return value + 'px'
   if (typeof value !== 'string') return fallback
@@ -116,11 +121,14 @@ export const CmPageHeader = component('CmPageHeader', (a, s) => {
 
 export const CmSectionHeader = component('CmSectionHeader', (a, s) => {
   const { title, description, headingLevel = 2, bordered, padded, class: className, ...attrs } = a
+  const content = element('div', { class: 'cm-section-header__content' }, [
+    element('h' + headingLevel, { class: 'cm-section-header__title' }, s.title?.() ?? title),
+    description ? element('p', { class: 'cm-section-header__description' }, description) : null,
+  ])
   return element('header', { ...attrs, class: classes('cm-section-header', bordered && 'cm-section-header--bordered', padded && 'cm-section-header--padded', className) }, [
-    element('div', { class: 'cm-section-header__content' }, [
-      element('h' + headingLevel, { class: 'cm-section-header__title' }, s.title?.() ?? title),
-      description ? element('p', { class: 'cm-section-header__description' }, description) : null,
-    ]),
+    s.icon ? h(CmRow, { gap: 'sm', minWidth: 0 }, { default: () => [
+      h(CmIconBadge, { tone: 'primary', 'aria-hidden': true }, { default: s.icon }), content,
+    ] }) : content,
     s.actions ? element('div', { class: 'cm-section-header__actions' }, s.actions()) : null,
   ])
 })
@@ -211,7 +219,7 @@ export const CmBadge = component('CmBadge', (a, s) => {
 })
 
 export const CmIconBadge = component('CmIconBadge', (a, s) => {
-  const { tone = 'default', variant = 'soft', size = 'md', class: className, ...attrs } = a
+  const { tone = 'default', variant = 'soft', size = 'sm', class: className, ...attrs } = a
   return element('span', { ...attrs, class: classes('cm-icon-badge', 'cm-icon-badge--' + variant, 'cm-icon-badge--tone-' + tone, 'cm-icon-badge--' + size, className) }, s.default?.())
 })
 

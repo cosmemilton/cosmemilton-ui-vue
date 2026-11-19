@@ -1,5 +1,5 @@
 import { Teleport, defineComponent, h, inject, nextTick, onMounted, onUnmounted, provide, ref, useId, watch, type InjectionKey, type VNodeChild } from 'vue'
-import { classes, component, element } from './primitives.js'
+import { barThicknessPixels, classes, component, element } from './primitives.js'
 
 export type ToastOptions = { title?: string; tone?: 'default' | 'info' | 'success' | 'warning' | 'danger'; duration?: number }
 type ToastItem = ToastOptions & { id: number; message: string }
@@ -262,12 +262,19 @@ export const CmDialog = defineComponent({
 })
 
 export const CmProgress = component('CmProgress', (a) => {
-  const { label, value, max = 100, tone, showValue, class: className } = a
-  return element('div', { class: classes('cm-progress', tone === 'inherit' && 'cm-progress--inherit', className) }, [
-    label || showValue ? element('div', { class: 'cm-progress__header', 'aria-hidden': true }, [
-      element('span', { class: 'cm-progress__label' }, label),
-      showValue === '' || showValue ? element('span', { class: 'cm-progress__value' }, Math.round(value / max * 100) + '%') : null,
+  const { label, value = 0, min = 0, max = 100, tone, showValue, srOnlyLabel, barThickness, valueFormat, class: className, 'aria-label': ariaLabel, ...attrs } = a
+  const span = max - min
+  const nativeValue = Math.min(Math.max(value - min, 0), Math.max(0, span))
+  const fraction = span > 0 ? nativeValue / span : 0
+  const percent = Math.round(fraction * 100)
+  const visibleLabel = label && (srOnlyLabel === undefined || srOnlyLabel === false)
+  const visibleValue = showValue !== undefined && showValue !== false
+  return element('div', { ...attrs, class: classes('cm-progress', tone === 'inherit' && 'cm-progress--inherit', className) }, [
+    visibleLabel || visibleValue ? element('div', { class: 'cm-progress__header', 'aria-hidden': true }, [
+      visibleLabel ? element('span', { class: 'cm-progress__label' }, label) : null,
+      visibleValue ? element('span', { class: 'cm-progress__value' }, valueFormat ? valueFormat({ value, min, max, fraction, percent }) : percent + '%') : null,
     ]) : null,
-    element('progress', { class: 'cm-progress__bar', value, max, 'aria-label': label }),
+    element('progress', { class: 'cm-progress__bar', value: nativeValue, max: span > 0 ? span : 1, 'aria-label': label || ariaLabel || 'Progresso',
+      style: { height: barThicknessPixels(barThickness) } }),
   ])
 })
