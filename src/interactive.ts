@@ -1,6 +1,8 @@
 import { Teleport, computed, defineComponent, h, nextTick, ref, useId, watch, type PropType } from 'vue'
 import { CmButton, CmField, CmInput } from './forms.js'
-import { CmCard, CmRow, CmStack, classes, element } from './primitives.js'
+import { CmCard, CmRow, element } from './primitives.js'
+
+export { CmSignaturePad } from './signature-pad.js'
 
 type Option = { label: string; value: string; disabled?: boolean }
 
@@ -151,48 +153,5 @@ export const CmRichTextEditor = defineComponent({
         style: { minHeight: '6rem', padding: 'var(--space-md)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)' },
       }, initial),
     ])
-  },
-})
-
-export const CmSignaturePad = defineComponent({
-  name: 'CmSignaturePad', props: { label: String, width: { type: Number, default: 420 }, height: { type: Number, default: 140 } },
-  emits: ['change'],
-  setup(props, { emit }) {
-    const canvas = ref<HTMLCanvasElement>()
-    let drawing = false
-    function pointer(event: PointerEvent, start: boolean) {
-      const node = canvas.value
-      const context = node?.getContext('2d')
-      if (!node || !context || (!drawing && !start)) return
-      const rect = node.getBoundingClientRect()
-      const x = (event.clientX - rect.left) * node.width / rect.width
-      const y = (event.clientY - rect.top) * node.height / rect.height
-      if (start) {
-        node.setPointerCapture(event.pointerId)
-        drawing = true
-        context.strokeStyle = getComputedStyle(node).color
-        context.lineWidth = 2
-        context.lineCap = 'round'
-        context.beginPath()
-        context.moveTo(x, y)
-      } else {
-        context.lineTo(x, y)
-        context.stroke()
-      }
-    }
-    function end() { if (drawing) { drawing = false; emit('change', canvas.value?.toDataURL()) } }
-    function clear() {
-      const node = canvas.value
-      node?.getContext('2d')?.clearRect(0, 0, props.width, props.height)
-      emit('change', null)
-    }
-    return () => h(CmStack, { class: 'cm-signature-pad', gap: 'sm' }, { default: () => [
-      element('canvas', { ref: canvas, width: props.width, height: props.height, 'aria-label': props.label ?? 'Área de assinatura',
-        onPointerdown: (event: PointerEvent) => pointer(event, true), onPointermove: (event: PointerEvent) => pointer(event, false),
-        onPointerup: end, onPointercancel: end,
-        style: { touchAction: 'none', width: '100%', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)' },
-      }),
-      h(CmButton, { variant: 'outline', size: 'sm', onClick: clear }, { default: () => 'Limpar assinatura' }),
-    ] })
   },
 })
