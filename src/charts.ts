@@ -10,7 +10,7 @@ const format = new Intl.NumberFormat('pt-BR')
 const svg = (tag: string, attrs: Record<string, unknown>, text?: string) => h(tag, attrs, text)
 const stroke = 'var(--color-border)'
 const muted = 'var(--color-muted-foreground)'
-const chartText = { fill: muted, fontSize: 12, fontFamily: 'var(--font-family)' }
+const chartText = { fill: muted, 'font-size': 12, 'font-family': 'var(--font-family)' }
 
 export const CmBarChart = defineComponent({
   name: 'CmBarChart',
@@ -414,7 +414,7 @@ export const CmLineChart = defineComponent({
   setup(props) {
     return () => {
       const series = normalizedSeries(props.data.map(item => item.value))
-      const width = 560, top = 14, left = 68, right = width - 12, bottom = props.height - 21
+      const width = 560, top = 14, left = 68, right = width - 12, bottom = props.height - 26
       const plotted = series.points.map(item => ({ x: left + item.x / 100 * (right - left), y: top + item.y / 100 * (bottom - top) }))
       const path = chartPath(plotted, props.curve === 'smooth')
       const first = plotted[0], last = plotted.at(-1)
@@ -426,15 +426,17 @@ export const CmLineChart = defineComponent({
         ...series.ticks.flatMap((tick, index) => {
           const y = top + index / 4 * (bottom - top)
           return [svg('line', { x1: left, x2: right, y1: y, y2: y, stroke }),
-            svg('text', { x: left - 8, y: y + 4, textAnchor: 'end', ...chartText }, props.valueFormat(tick))]
+            svg('text', { x: left - 8, y: y + 4, 'text-anchor': 'end', ...chartText }, props.valueFormat(tick))]
         }),
         props.area && first && last ? svg('path', { d: path + ' L' + last.x + ' ' + baseline + ' L' + first.x + ' ' + baseline + ' Z', fill: tone('primary'), opacity: .14 }) : null,
         svg('path', { d: path, fill: 'none', stroke: tone('primary'), 'stroke-linecap': 'round', 'stroke-width': 2.5 }),
         ...plotted.flatMap(({ x, y }, index) => {
           const item = props.data[index]!
+          const firstLabel = index === 0
+          const lastLabel = index === plotted.length - 1
           return [h('circle', { cx: x, cy: y, r: 3.3, fill: tone(item.tone ?? 'primary') }, [svg('title', {}, item.label + ' · ' + props.valueFormat(item.value))]),
-            index === 0 || index === plotted.length - 1 || (plotted.length <= 8)
-              ? svg('text', { x, y: props.height - 3, textAnchor: 'middle', ...chartText }, item.label) : null]
+            firstLabel || lastLabel || plotted.length <= 8
+              ? svg('text', { x, y: props.height - 5, 'text-anchor': firstLabel ? 'start' : lastLabel ? 'end' : 'middle', ...chartText }, item.label) : null]
         }),
       ]) })
     }

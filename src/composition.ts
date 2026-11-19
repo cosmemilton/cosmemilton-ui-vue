@@ -1,7 +1,7 @@
 import { computed, defineComponent, h, inject, provide, ref, useId, type InjectionKey, type PropType, type Ref, type VNodeChild } from 'vue'
 import { CmButton, CmField, CmNativeInput } from './forms.js'
 import { CmDialog, CmDropdownMenu, type MenuItem } from './feedback.js'
-import { CmCard, CmRow, CmSectionHeader, CmStack, classes, component, element, normalizeAttrs } from './primitives.js'
+import { CmCard, CmGridContainer, CmRow, CmSectionHeader, CmStack, classes, component, element, normalizeAttrs } from './primitives.js'
 
 export const CmDisclosure = component('CmDisclosure', (a, s) => {
   const { title, defaultOpen, open = defaultOpen, class: className, ...attrs } = a
@@ -125,9 +125,9 @@ export const CmPanel = component('CmPanel', (a, s) => {
 export const CmListPanel = component('CmListPanel', (a, s) => {
   const { title, description, filterLabel, ...attrs } = a
   return h(CmCard, attrs, {
-    header: () => h(CmSectionHeader, { title, description }, { actions: s.actions }),
+    header: () => h(CmSectionHeader, { title, description }, { actions: s.actions, description: s.description }),
     default: () => h(CmStack, { gap: 'md' }, { default: () => [
-      s.filters ? element('div', { class: 'cm-grid-container cm-grid-container--filters', role: 'group', 'aria-label': filterLabel }, s.filters()) : null,
+      s.filters ? h(CmGridContainer, { preset: 'filters', spacing: 'md', role: 'group', 'aria-label': filterLabel ?? title }, { default: s.filters }) : null,
       s.default?.(),
     ] }),
   })
